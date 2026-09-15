@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ShipTwin — Decision Engine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --deep:#08202E;
+    --hull:#0F3A4D;
+    --plate:#123F52;
+    --foam:#EDE7D8;
+    --foam-dim:#B9C4C2;
+    --teal:#3FA79A;
+    --amber:#E0954A;
+    --danger:#C25C4F;
+    --line:rgba(237,231,216,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--deep);
+    color:var(--foam);
+    font-family:'IBM Plex Sans',sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:36px 28px 60px;}
+
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:28px;border-bottom:1px solid var(--line);padding-bottom:22px;}
+  .brand h1{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:2.4rem;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .brand p{margin:0;color:var(--foam-dim);font-size:0.95rem;max-width:520px;line-height:1.5;}
+  .pitch{font-family:'Fraunces',serif;font-style:italic;font-size:1rem;color:var(--teal);text-align:right;max-width:280px;line-height:1.4;}
+
+  .layout{display:grid;grid-template-columns:300px 1fr;gap:26px;}
+  @media (max-width:860px){.layout{grid-template-columns:1fr;}}
+
+  .panel{background:var(--hull);border:1px solid var(--line);border-radius:6px;padding:22px;}
+  .panel h2{font-size:0.85rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--foam-dim);margin:0 0 16px;font-weight:500;}
+
+  label{display:block;font-size:0.85rem;margin:16px 0 6px;color:var(--foam-dim);}
+  select, input[type=range]{width:100%;}
+  select{
+    background:var(--plate);color:var(--foam);border:1px solid var(--line);
+    padding:9px 10px;border-radius:4px;font-size:0.92rem;font-family:inherit;
+  }
+  .slider-row{display:flex;justify-content:space-between;align-items:baseline;}
+  .slider-value{font-family:'IBM Plex Mono',monospace;color:var(--teal);font-size:0.9rem;}
+  input[type=range]{
+    -webkit-appearance:none;height:4px;border-radius:2px;background:var(--plate);margin-top:8px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--teal);cursor:pointer;
+  }
+
+  .recommend-banner{
+    background:linear-gradient(90deg, rgba(63,167,154,0.16), transparent);
+    border:1px solid var(--teal);border-radius:6px;padding:16px 20px;margin-bottom:20px;
+    display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+  }
+  .recommend-banner .label{font-size:0.78rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--teal);}
+  .recommend-banner .name{font-family:'Fraunces',serif;font-size:1.3rem;margin-top:2px;}
+  .recommend-banner .why{font-size:0.85rem;color:var(--foam-dim);max-width:360px;}
+
+  table{width:100%;border-collapse:collapse;}
+  th{
+    text-align:left;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;
+    color:var(--foam-dim);padding:8px 10px;border-bottom:1px solid var(--line);font-weight:500;
+  }
+  td{padding:12px 10px;border-bottom:1px solid var(--line);font-size:0.9rem;vertical-align:top;}
+  tr.top-rank{background:rgba(63,167,154,0.07);}
+  .opt-name{font-weight:600;}
+  .why-list{margin:4px 0 0;padding-left:16px;color:var(--foam-dim);font-size:0.8rem;}
+  .why-list li{margin-bottom:2px;}
+
+  .badge{
+    display:inline-block;padding:2px 9px;border-radius:3px;font-family:'IBM Plex Mono',monospace;
+    font-size:0.82rem;font-weight:500;
+  }
+  .badge-A{background:rgba(63,167,154,0.22);color:#7FD9CB;}
+  .badge-B{background:rgba(63,167,154,0.15);color:#9BC9C0;}
+  .badge-C{background:rgba(224,149,74,0.2);color:var(--amber);}
+  .badge-D{background:rgba(194,92,79,0.18);color:#E08877;}
+  .badge-E{background:rgba(194,92,79,0.3);color:#F0A197;}
+
+  .num{font-family:'IBM Plex Mono',monospace;}
+  .rank-pill{
+    width:22px;height:22px;border-radius:50%;background:var(--plate);color:var(--foam-dim);
+    display:inline-flex;align-items:center;justify-content:center;font-size:0.78rem;font-family:'IBM Plex Mono',monospace;
+  }
+  tr.top-rank .rank-pill{background:var(--teal);color:var(--deep);}
+
+  footer{margin-top:26px;font-size:0.78rem;color:var(--foam-dim);border-top:1px solid var(--line);padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1>ShipTwin</h1>
+      <p>Digital twin decision engine for Indian coastal shipping — weighing fuel, time, cost, CO₂ and IMO carbon compliance in one recommendation.</p>
+    </div>
+    <div class="pitch">"Decide whether to sail, reroute, slow down, or maintain — before the cost becomes unavoidable."</div>
+  </header>
+
+  <div class="layout">
+
+    <div class="panel">
+      <h2>Voyage scenario</h2>
+
+      <label for="ship">Ship</label>
+      <select id="ship"></select>
+
+      <label for="route">Route</label>
+      <select id="route"></select>
+
+      <label for="weather">Weather</label>
+      <select id="weather"></select>
+
+      <div class="slider-row"><label for="cargo" style="margin:16px 0 0">Cargo load</label><span class="slider-value" id="cargoVal">70%</span></div>
+      <input type="range" id="cargo" min="20" max="100" value="70">
+
+      <div class="slider-row"><label for="hull" style="margin:16px 0 0">Hull fouling override</label><span class="slider-value" id="hullVal">use ship data</span></div>
+      <input type="range" id="hull" min="0" max="60" value="-1">
+
+      <h2 style="margin-top:28px">What-if simulator</h2>
+      <p style="font-size:0.8rem;color:var(--foam-dim);line-height:1.5;margin:0">Drag any control above — every option recalculates live, including its CII rating and penalty cost.</p>
+    </div>
+
+    <div>
+      <div class="recommend-banner">
+        <div>
+          <div class="label">Recommended decision</div>
+          <div class="name" id="recName">—</div>
+        </div>
+        <div class="why" id="recWhy"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Ranked options</h2>
+        <table>
+          <thead>
+            <tr>
+              <th></th><th>Option</th><th>Fuel (t)</th><th>Time (d)</th>
+              <th>CO₂ (t)</th><th>CII</th><th>Cost incl. penalty</th>
+            </tr>
+          </thead>
+          <tbody id="optionsBody"></tbody>
+        </table>
+      </div>
+
+      <footer>Simulated dataset — Indian coastal routes (JNPT · Mundra · Chennai · Kandla). Figures are illustrative, built for demo purposes on a simplified fuel/CII model.</footer>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------
+   Ported from data_model.py / digital_twin.py / decision_engine.py /
+   compliance.py so the whole demo runs client-side, no server needed.
+--------------------------------------------------------------------- */
+
+const SHIPS = [
+  {ship_id:"SHIP001", name:"MV Sagar Prabha", design_speed_knots:14, base_fuel_rate_tons_per_day:28, capacity_dwt:45000, hull_fouling_pct:18},
+  {ship_id:"SHIP002", name:"MV Konkan Star", design_speed_knots:16, base_fuel_rate_tons_per_day:22, capacity_dwt:18000, hull_fouling_pct:32},
+  {ship_id:"SHIP003", name:"MV Kandla Pearl", design_speed_knots:13, base_fuel_rate_tons_per_day:25, capacity_dwt:38000, hull_fouling_pct:9},
+];
+
+const ROUTES = [
+  {route_id:"R1", origin:"JNPT", destination:"Chennai", distance_nm:780, alt_distance_nm:830, alt_note:"deeper water, avoids monsoon swell"},
+  {route_id:"R2", origin:"Mundra", destination:"Kandla", distance_nm:95, alt_distance_nm:110, alt_note:"avoids shallow sandbar delay"},
+  {route_id:"R3", origin:"Chennai", destination:"Kandla", distance_nm:1450, alt_distance_nm:1510, alt_note:"coastal hugging route, calmer seas"},
+  {route_id:"R4", origin:"JNPT", destination:"Mundra", distance_nm:310, alt_distance_nm:340, alt_note:"avoids port congestion zone near Pipavav"},
+];
+
+const WEATHER = [
+  {scenario:"Calm", wave_height_m:0.5, headwind_knots:2},
+  {scenario:"Moderate sea", wave_height_m:1.8, headwind_knots:8},
+  {scenario:"Monsoon rough", wave_height_m:3.2, headwind_knots:18},
+];
+
+const FUEL_PRICE = 620, CHARTER_PER_DAY = 9500, HULL_CLEAN_COST = 45000,
+      HULL_CLEAN_DOWNTIME = 1.5, CO2_PER_TON_FUEL = 3.114;
+
+const CII_BANDS = [[0,3.0,"A"],[3.0,4.0,"B"],[4.0,5.0,"C"],[5.0,6.5,"D"],[6.5,Infinity,"E"]];
+const PENALTY_BY_RATING = {A:0,B:0,C:5000,D:20000,E:50000};
+
+function computeVoyage(ship, distance, speed, weather, cargoPct, foulingOverride){
+  const fouling = (foulingOverride !== null && foulingOverride >= 0) ? foulingOverride : ship.hull_fouling_pct;
+  const sf = Math.pow(speed/ship.design_speed_knots, 3);
+  const hf = 1 + (fouling/100)*0.30;
+  const wf = 1 + weather.wave_height_m*0.05 + weather.headwind_knots*0.015;
+  const cf = 1 + ((cargoPct-50)/100)*0.12;
+
+  const fuelRate = ship.base_fuel_rate_tons_per_day * sf * hf * wf * cf;
+  const timeDays = distance / (speed*24);
+  const fuelUsed = fuelRate * timeDays;
+  const co2 = fuelUsed * CO2_PER_TON_FUEL;
+  const fuelCost = fuelUsed * FUEL_PRICE;
+  const charterCost = timeDays * CHARTER_PER_DAY;
+
+  return {
+    timeDays, fuelUsed, co2,
+    totalCost: fuelCost + charterCost,
+    factors:{sf,hf,wf,cf,foulingUsed:fouling}
+  };
+}
+
+function ciiRating(co2Tons, capacityDwt, distanceNm){
+  const co2Grams = co2Tons * 1e6;
+  const attained = co2Grams / (capacityDwt * distanceNm);
+  for(const [lo,hi,rating] of CII_BANDS){ if(attained>=lo && attained<hi) return {attained, rating}; }
+  return {attained, rating:"E"};
+}
+
+function whyReasons(f){
+  const reasons=[];
+  if(f.hf>1.05) reasons.push(`Hull fouling (${f.foulingUsed}%) adding drag`);
+  if(f.wf>1.1) reasons.push("Rough weather increasing resistance");
+  if(f.sf>1.0) reasons.push("Higher speed driving cubic fuel increase");
+  if(f.cf>1.05) reasons.push("Heavy cargo load increasing displacement");
+  if(reasons.length===0) reasons.push("Near-baseline conditions, no major penalty factor");
+  return reasons.slice(0,3);
+}
+
+function generateOptions(ship, route, weather, cargoPct, foulingOverride){
+  const design = ship.design_speed_knots;
+  const opts = [];
+
+  const base = computeVoyage(ship, route.distance_nm, design, weather, cargoPct, foulingOverride);
+  opts.push({name:"Continue as-is", ...base, note:"No changes to route, speed, or hull."});
+
+  const calmer = {wave_height_m:weather.wave_height_m*0.6, headwind_knots:weather.headwind_knots*0.7};
+  const reroute = computeVoyage(ship, route.alt_distance_nm, design, calmer, cargoPct, foulingOverride);
+  opts.push({name:`Reroute (${route.alt_note})`, ...reroute, note:`+${route.alt_distance_nm-route.distance_nm} nm distance, calmer conditions.`});
+
+  const slowSpeed = design*0.85;
+  const slow = computeVoyage(ship, route.distance_nm, slowSpeed, weather, cargoPct, foulingOverride);
+  opts.push({name:`Slow down to ${slowSpeed.toFixed(1)} kn`, ...slow, note:"Cuts fuel burn, adds transit time."});
+
+  const clean = computeVoyage(ship, route.distance_nm, design, weather, cargoPct, 2);
+  clean.totalCost += HULL_CLEAN_COST + HULL_CLEAN_DOWNTIME*CHARTER_PER_DAY;
+  clean.timeDays += HULL_CLEAN_DOWNTIME;
+  opts.push({name:"Hull clean now, then sail", ...clean, note:`+$${HULL_CLEAN_COST.toLocaleString()} cleaning cost, benefits future voyages too.`});
+
+  const fastSpeed = design*1.10;
+  const fast = computeVoyage(ship, route.distance_nm, fastSpeed, weather, cargoPct, foulingOverride);
+  opts.push({name:`Speed up to ${fastSpeed.toFixed(1)} kn`, ...fast, note:"Faster arrival, cubic fuel penalty."});
+
+  return opts;
+}
+
+function attachComplianceAndScore(opts, ship, route){
+  opts.forEach(o=>{
+    const {attained, rating} = ciiRating(o.co2, ship.capacity_dwt, route.distance_nm);
+    o.ciiAttained = attained; o.ciiRating = rating;
+    o.penalty = PENALTY_BY_RATING[rating];
+    o.totalCostWithPenalty = o.totalCost + o.penalty;
+  });
+  const maxCost = Math.max(...opts.map(o=>o.totalCostWithPenalty));
+  const maxTime = Math.max(...opts.map(o=>o.timeDays));
+  const maxCo2 = Math.max(...opts.map(o=>o.co2));
+  opts.forEach(o=>{
+    o.score = 0.5*(o.totalCostWithPenalty/maxCost) + 0.2*(o.timeDays/maxTime) + 0.3*(o.co2/maxCo2);
+  });
+  return opts.sort((a,b)=>a.score-b.score);
+}
+
+// ---- UI wiring ----
+const shipSel=document.getElementById('ship'), routeSel=document.getElementById('route'),
+      weatherSel=document.getElementById('weather'), cargoSlider=document.getElementById('cargo'),
+      hullSlider=document.getElementById('hull'), cargoVal=document.getElementById('cargoVal'),
+      hullVal=document.getElementById('hullVal');
+
+SHIPS.forEach(s=>shipSel.add(new Option(s.name, s.ship_id)));
+ROUTES.forEach(r=>routeSel.add(new Option(`${r.origin} -> ${r.destination}`, r.route_id)));
+WEATHER.forEach((w,i)=>weatherSel.add(new Option(w.scenario, i)));
+
+function recalc(){
+  const ship = SHIPS.find(s=>s.ship_id===shipSel.value);
+  const route = ROUTES.find(r=>r.route_id===routeSel.value);
+  const weather = WEATHER[+weatherSel.value];
+  const cargoPct = +cargoSlider.value;
+  const hullOverride = +hullSlider.value;
+
+  cargoVal.textContent = cargoPct+"%";
+  hullVal.textContent = hullOverride<0 ? "use ship data" : hullOverride+"%";
+
+  let opts = generateOptions(ship, route, weather, cargoPct, hullOverride);
+  opts = attachComplianceAndScore(opts, ship, route);
+
+  const top = opts[0];
+  document.getElementById('recName').textContent = top.name;
+  document.getElementById('recWhy').textContent = whyReasons(top.factors).join(" · ");
+
+  const body = document.getElementById('optionsBody');
+  body.innerHTML = opts.map((o,i)=>`
+    <tr class="${i===0?'top-rank':''}">
+      <td><span class="rank-pill">${i+1}</span></td>
+      <td>
+        <div class="opt-name">${o.name}</div>
+        <ul class="why-list">${whyReasons(o.factors).map(r=>`<li>${r}</li>`).join('')}</ul>
+      </td>
+      <td class="num">${o.fuelUsed.toFixed(1)}</td>
+      <td class="num">${o.timeDays.toFixed(2)}</td>
+      <td class="num">${o.co2.toFixed(1)}</td>
+      <td><span class="badge badge-${o.ciiRating}">${o.ciiRating}</span></td>
+      <td class="num">$${Math.round(o.totalCostWithPenalty).toLocaleString()}</td>
+    </tr>
+  `).join('');
+}
+
+[shipSel, routeSel, weatherSel, cargoSlider, hullSlider].forEach(el=>el.addEventListener('input', recalc));
+recalc();
+</script>
+</body>
+</html>
